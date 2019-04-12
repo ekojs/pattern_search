@@ -1,60 +1,37 @@
-<!DOCTYPE HTML>
-<html>  
-<body>
-
-<html>
-   <body>
-      <form action="index.php" method="POST" enctype="multipart/form-data">
-	  <input type="file" name="uploadedFile">
-      <input type="submit" value="Upload">
-      </form>
-   </body>
-</html>
-
 <?php
 
-if(!empty($_FILES['uploadedFile']))
-{
-	$tempData = array();
-	$pattern = '/^(print?)-\d{1,}\/([a-zA-Z0-9\/\.-]+)\/\d{4}$/is';
+$file = $argv[1];
+$file_lines = file($file);
 
-	$file_lines = file($_FILES["uploadedFile"]["tmp_name"]);
-	
+$proses = function($file_lines){
+	$pattern = '/^(b|print?)-\d{1,}\/([a-zA-Z0-9\/\.-]+)\/\d{4}$/is';
 	foreach ($file_lines as $line) {
-		$line = str_replace(array("\n", "\r"), '', $line);
+		/**
+		 * Filtering pattern
+		 */
 		
-		if(stripos($line, "prin") > 0){
-			$startString = stripos($line, "prin");
-			$line = substr($line, $startString, (strlen($line) - $startString));
-		}
-
-		if(strrpos($line, " ") || strrpos($line, "\\") || substr_count ($line, '-') > 1){
-			$line = str_replace(' ', '', $line);
-			$line = preg_replace('/^(print?)-+/i', substr($line, 0, 6), $line);
-			$line = str_replace('\\', '/', $line);
-		}
-
-    	if(preg_match($pattern, $line)){
-			array_push($tempData, $line);
+		$line = preg_replace('/\s/mi','',$line);
+		$line = preg_replace('/\\\\/mi','/',$line);
+		$line = preg_replace('/^(b|print?)([-]{2,})/mi','$1-',$line);
+		$line = preg_replace('/[-]{2,}/mi','-',$line);
+		$line = preg_replace('/[\.]{2,}/mi','.',$line);
+		$line = preg_replace('/[\/]{2,}/mi','/',$line);
+		$line = preg_replace('/([^a-zA-Z\.\-\/\d]{1,}|nom[eo]r)/mi','',$line);
+	
+		/**
+		 * Apply valid pattern
+		 */
+		if(preg_match($pattern, $line)){
+			yield $line;
 		}
 	}
+};
 
-	if(count($tempData) > 0){
-		$myFile = 'my_file.txt';
-		if(file_exists($myFile)){
-			unlink($myFile) or die("Couldn't delete file");
-		}
-
-		foreach($tempData as $data){
-			file_put_contents($myFile,$data.PHP_EOL,FILE_APPEND);
-		}
-		echo 'File has been created';
-	}
-	else{
-		echo 'Data empty';
-	}
+if(file_exists('my_file.txt')){
+	unlink('my_file.txt') or die("Couldn't delete file");
 }
-?>
 
-</body>
-</html>
+foreach($proses($file_lines) as $v){
+	echo $v.PHP_EOL;
+	file_put_contents('my_file.txt',$v.PHP_EOL,FILE_APPEND);
+}
